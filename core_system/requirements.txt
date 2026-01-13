@@ -1,0 +1,19 @@
+# Analysis and linting tools
+flake8>=6.0.0
+pylint>=2.17.0
+mypy>=1.4.0
+black>=23.0.0
+isort>=5.12.0
+autoflake>=2.0.0
+
+# Security tools
+bandit>=1.7.0
+safety>=2.3.0
+
+# Testing tools
+pytest>=7.4.0
+pytest-cov>=4.1.0
+
+# Helper tools
+pyyaml>=6.0
+rich>=13.0.0
