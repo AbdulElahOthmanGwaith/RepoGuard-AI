@@ -97,6 +97,54 @@ class ScanResult:
             "all_issues": [i.to_dict() for i in self.issues]
         }
 
+    def to_sarif(self) -> dict:
+        """Convert result to SARIF 2.1.0 for code-scanning integrations."""
+        level_map = {
+            Severity.CRITICAL: "error",
+            Severity.HIGH: "error",
+            Severity.MEDIUM: "warning",
+            Severity.LOW: "note",
+            Severity.INFO: "note",
+        }
+        results = []
+        rules = {}
+        for issue in self.issues:
+            rule_id = issue.rule_id or f"repo-guardian/{issue.issue_type.value}"
+            rules.setdefault(rule_id, {
+                "id": rule_id,
+                "shortDescription": {"text": issue.message},
+                "help": {"text": issue.suggestion or "Review this finding."},
+            })
+            results.append({
+                "ruleId": rule_id,
+                "level": level_map.get(issue.severity, "warning"),
+                "message": {"text": issue.message},
+                "locations": [{
+                    "physicalLocation": {
+                        "artifactLocation": {"uri": issue.file},
+                        "region": {
+                            "startLine": max(1, issue.line),
+                            "startColumn": max(1, issue.column + 1),
+                        },
+                    }
+                }],
+            })
+
+        return {
+            "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
+            "version": "2.1.0",
+            "runs": [{
+                "tool": {
+                    "driver": {
+                        "name": "RepoGuard-AI",
+                        "informationUri": "https://github.com/AbdulElahOthmanGwaith/RepoGuard-AI",
+                        "rules": list(rules.values()),
+                    }
+                },
+                "results": results,
+            }],
+        }
+
 
 class CodeAnalyzer:
     """Main code analyzer"""
@@ -391,10 +439,10 @@ def main():
     output_path = Path(args.output)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     
-    if args.format == 'json':
-        with open(output_path, 'w', encoding='utf-8') as f:
-            json.dump(result.to_dict(), f, indent=2, ensure_ascii=False)
-        print(f"   Results saved to {output_path}")
+    payload = result.to_dict() if args.format == 'json' else result.to_sarif()
+    with open(output_path, 'w', encoding='utf-8') as f:
+        json.dump(payload, f, indent=2, ensure_ascii=False)
+    print(f"   Results saved to {output_path}")
     
     # Save critical issues file
     if result.critical_issues:
